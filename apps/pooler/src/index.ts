@@ -1,84 +1,60 @@
+import {w3cwebsocket as W3CWebsocket} from "websocket";
+import {createClient} from "redis";
 
-import WebSocket from "ws";
-import { client, connectRedis } from "./redis";
+const ws=new W3CWebsocket('wss://ws.backpack.exchange/');
+const publisher=createClient({url:"redis://localhost:6379"})
 
-const ws = new WebSocket("wss://ws.backpack.exchange");
-type message ={
-  
-    A: "string",
-    "B": "string",
-    "E": number,
-    "T": number,
-    "a": "string",
-    "b": "string",
-    "e": "string",
-    "s": "string",
-    "u": number
-  
+const liveData:{asset:string; price:number}[]=[];
+
+async function connect(){
+    try{
+        await publisher.connect();
+        console.log("connected to redis");
+
+    }catch(err){
+        console.log("Redis connection failed",err)
+    }
+    
+    ws.onopen=()=>{
+        console.log("Connected to Backpack api");
+        ws.send(JSON.stringify(
+            {
+                method:"SUBSCRIBE",
+                params:[ "bookTicker.SOL_USDC_PERP", "bookTicker.BTC_USDC_PERP", "bookTicker.ETH_USDC_PERP"]
+            }
+        ))
+        runTrades();
+    }
+
+    ws.onmessage=(event)=>{
+        const msg=JSON.parse(event.data.toString());
+        
+        const trade={
+            asset:msg.data.s,
+            price:msg.data.a
+        }
+        const existingEntry=liveData.find(d=>d.asset===trade.asset);
+
+        if(existingEntry) existingEntry.price=trade.price;
+        else liveData.push(trade)
+    }
+
+    ws.onclose=()=>{
+        console.log("Disconnected from backapck")
+    }
 }
 
-connectRedis();
+function runTrades(){
+        setInterval(sendTrades,100);
+}
 
-ws.on("open", () => {
-  ws.send(JSON.stringify({method:"SUBSCRIBE",params:["bookTicker.SOL_USDC_PERP","bookTicker.BTC_USDC_PERP","bookTicker.ETH_USDC_PERP"],id:2}));
-  //{"method":"SUBSCRIBE","params":[],"id":1}
-  //{"method":"SUBSCRIBE","params":[],"id":1}
-});
-let SOL_USDC_PERP:message;
-let solPrice:string;
-let solDecimalPLace:number;
-let ETH_USDC_PERP:message;
-let ethPrice:string;
-let ethDecimalPLace:number;
-let BTC_USDC_PERP:message;
-let btcPrice:string;
-let btcDecimalPLace:number;
+async function sendTrades() {
+  const id = await publisher.xAdd(
+    "tradesFromPooler", 
+    "*",                
+    { priceOfTrade: JSON.stringify(liveData) } 
+  );
+  console.log("Produced:", id, liveData);
+}
 
-ws.on("message", async (data) => {
-  try {
-    const message = JSON.parse(data.toString());
-    console.log(message.data);
-    
-
-    if(message.stream == 'bookTicker.SOL_USDC_PERP'){
-        SOL_USDC_PERP = message.data
-        solPrice = SOL_USDC_PERP.a
-        solPrice = solPrice.replace(".",'');
-        solDecimalPLace=SOL_USDC_PERP.a.split(".")[1].length
-        
-
-    }else if(message.stream == 'bookTicker.BTC_USDC_PERP'){
-      ETH_USDC_PERP = message.data
-      ethPrice = ETH_USDC_PERP.a
-      ethPrice = ethPrice.replace(".",'');
-      ethDecimalPLace=ETH_USDC_PERP.a.split(".")[1].length
-
-    }else if(message.stream == 'bookTicker.ETH_USDC_PERP'){
-      BTC_USDC_PERP = message.data
-      btcPrice = BTC_USDC_PERP.a
-      btcPrice = btcPrice.replace(".",'');
-      btcDecimalPLace=BTC_USDC_PERP.a.split(".")[1].length   //first it will split in form of arary ['4312', '57']  of two value ,decimal ke bad ka part and pahle ka part phir dursa wale part ka lenght is what decimal
-    }
-  
-    setInterval(()=>{
-        async function startPublishing(){
-            await client.publish("price_updates", JSON.stringify([{
-              "asset":"SOL_USDC_PERP",
-              "price":solPrice,
-              "decimal":solDecimalPLace
-            },{
-              "asset":"ETH_USDC_PERP",
-              "price":ethPrice,
-              "decimal":ethDecimalPLace
-            },{
-              "asset":"BTC_USDC_PERP",
-              "price":btcPrice,
-              "decimal":btcDecimalPLace
-            }]));
-        }
-     startPublishing()
-    },100)
-  } catch (err) {
-    console.error(" Failed to parse message", err);
-  }
-});
+connect();

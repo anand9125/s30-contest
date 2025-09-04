@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 const resend =  new Resend("re_idqpL6nz_LL3svSDukwQsRwzf8f8RG7p3");
 const BACKEND_URL = 'http://localhost:3000'
-export const sendSigninEmail = async(username:string,sign:string)=>{
+export async function sendSigninEmail(username:string,sign:string){
   resend.emails.send({
     from: 'onborading@resend.dev',
     to: username,
