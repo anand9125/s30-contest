@@ -1,0 +1,2 @@
+In trading systems (especially margin/futures trading), liquidation means your position is force-closed by the exchange
+ because you don’t have enough margin left to cover losses.

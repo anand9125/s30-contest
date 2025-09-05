@@ -4,7 +4,7 @@ import {createClient} from "redis";
 const ws=new W3CWebsocket('wss://ws.backpack.exchange/');
 const publisher=createClient({url:"redis://localhost:6379"})
 
-const liveData:{asset:string; price:number}[]=[];
+const liveData:{asset:string; price:number,decimal:number}[]=[];
 
 async function connect(){
     try{
@@ -28,14 +28,22 @@ async function connect(){
 
     ws.onmessage=(event)=>{
         const msg=JSON.parse(event.data.toString());
-        
+        let price = msg.data.a;
+        let decimal:number;
+        price = price.replace('.', '');
+        decimal =msg.data.a.split('.')[1].length;
+
         const trade={
             asset:msg.data.s,
-            price:msg.data.a
+            price:price,
+            decimal
         }
         const existingEntry=liveData.find(d=>d.asset===trade.asset);
 
-        if(existingEntry) existingEntry.price=trade.price;
+        if(existingEntry){
+               existingEntry.price=trade.price;
+               existingEntry.decimal=trade.decimal;
+        } 
         else liveData.push(trade)
     }
 

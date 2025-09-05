@@ -1,11 +1,10 @@
 import { createClient } from 'redis';
 
 
-// In-memory storage
-let trades: any[] = [];
+export let trades: { asset: string; price: string ,decimal:number}[] = [];
 let userBalance: number = 0;
 
-const streamClient = createClient({ url: "redis://localhost:6379" });
+export const streamClient = createClient({ url: "redis://localhost:6379" });
 
 export async function polarConsumer() {
     try {
@@ -18,7 +17,7 @@ export async function polarConsumer() {
     
     try {
         //create a consumer grp called tradeGroups on stram tradesFromPooler
-        await streamClient.XGROUP_CREATE("tradesFromPooler", "tradeGroups", "0", { MKSTREAM: true });
+        await streamClient.XGROUP_CREATE("tradesFromPooler", "engineGroups", "0", { MKSTREAM: true });
     } catch (err) {
         console.log("Group already exists or error creating group:", err);
     }
@@ -26,12 +25,12 @@ export async function polarConsumer() {
     while (true) {
         try {
             const data = await streamClient.xReadGroup( // read messages as part of a consumer group
-                "tradeGroups", //grp name
+                "engineGroups", //grp name
                 "engine1",     //consumer name
                 { key: "tradesFromPooler", id: ">" },//stram name and only fetch new messages
                 { BLOCK: 5000, COUNT: 1 }  //wait upto 5 seconds reads 1 message at a time
             );
-
+          // console.log(data,"this is data");
             if (data) {
                 const streams: any = data;
                 for (let i = 0; i < streams.length; i++) {
@@ -41,17 +40,29 @@ export async function polarConsumer() {
                     for (let j = 0; j < messages.length; j++) {
                         const msg = messages[j];
                         const msgId = msg.id;
-                        const msgData = msg.message;
-                        
-                        console.log("Received trade:", msgData);
+                    const msgData = msg.message;
 
-                        if (msgData.priceOfTrade) {
-                            const trade = JSON.parse(msgData.priceOfTrade);
-                            trades.push(trade);
-                            console.log("Total trades stored:", trades.length);
-                        }
+                    if (msgData.priceOfTrade) {
+                        const tradeArray = JSON.parse(msgData.priceOfTrade) as { asset: string; price: string; decimal: number }[];
+                        console.log(tradeArray, "trade array");
 
-                        await streamClient.xAck("tradesFromPooler", "tradeGroups", msgId);
+                        tradeArray.forEach((newTrade) => {
+                            const existingEntry = trades.find(d => d.asset === newTrade.asset);
+                            if (existingEntry) {
+                                if (existingEntry.price !== newTrade.price || existingEntry.decimal !== newTrade.decimal) {
+                                    existingEntry.price = newTrade.price;
+                                    existingEntry.decimal = newTrade.decimal;
+                                    console.log(` Updated trade: ${newTrade.asset} => ${newTrade.price}`);
+                                }
+                            } else {
+                                trades.push(newTrade);
+                                console.log(` Added trade: ${newTrade.asset} => ${newTrade.price}`);
+                                console.log("Total trades stored:", trades.length);
+                            }
+                        });
+                    }
+
+                     await streamClient.xAck("tradesFromPooler", "tradeGroups", msgId);
                     }
                 }
             }

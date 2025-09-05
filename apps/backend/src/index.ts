@@ -1,9 +1,9 @@
 import express from "express"
 import { Request, Response } from "express"
 require('dotenv').config()
-import { runProducer } from "./sevices/producer"
 import { userRouter } from "./routes/userRouter"
 import { tradeRouter } from "./routes/tradeRouter"
+import { client } from "./controller/tradeController"
 
 const app = express()
 app.use(express.json())
@@ -14,7 +14,6 @@ app.use("/api/v1/user",userRouter)
 app.use("/api/v1/trade",tradeRouter)
 
 
-runProducer().catch(console.error);
 
 
 
