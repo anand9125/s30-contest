@@ -1,11 +1,10 @@
 
-import { buyAsset, sellAsset } from '../trade';
+import { buyAsset, closeTrade, sellAsset } from '../trade';
 import { streamClient } from './polarConsumer';
 import {createClient} from 'redis';
 
 
 export async function backendConsumer() {
-  
     // 1 service = 1 group (across all streams it consumes). service = ourengine
     while (true) {
         try{
@@ -57,6 +56,19 @@ export async function backendConsumer() {
                                 streamClient.xAdd("responseFromBackend", "*", {response:"user don't have enough balance"})
                             }
 
+                        }
+                        else if(data.type=="CLOSE"){
+                          const closedTrade = closeTrade(data)
+                          if(closedTrade){
+                            streamClient.xAdd("responseFromBackend", "*", {
+                                response: JSON.stringify({
+                                    closedTrade,
+                                    orderId: data.orderId
+                                })
+                            });
+                          }else{
+                            streamClient.xAdd("responseFromBackend", "*", {response:"trade is not open"})
+                          }
                         }
 
                         await streamClient.xAck("requestFromBackend", "engineGroups", msgId);

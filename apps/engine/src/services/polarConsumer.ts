@@ -1,4 +1,6 @@
 import { createClient } from 'redis';
+import { liquidation } from '../trade';
+import { OpenTrade } from '../type';
 
 
 export let trades: { asset: string; price: string ,decimal:number}[] = [];
@@ -30,7 +32,6 @@ export async function polarConsumer() {
                 { key: "tradesFromPooler", id: ">" },//stram name and only fetch new messages
                 { BLOCK: 5000, COUNT: 1 }  //wait upto 5 seconds reads 1 message at a time
             );
-          // console.log(data,"this is data");
             if (data) {
                 const streams: any = data;
                 for (let i = 0; i < streams.length; i++) {
@@ -47,6 +48,8 @@ export async function polarConsumer() {
                         console.log(tradeArray, "trade array");
 
                         tradeArray.forEach((newTrade) => {
+                            console.log(newTrade, "new trade");
+                             const closedTrades:OpenTrade[] = liquidation(newTrade)
                             const existingEntry = trades.find(d => d.asset === newTrade.asset);
                             if (existingEntry) {
                                 if (existingEntry.price !== newTrade.price || existingEntry.decimal !== newTrade.decimal) {

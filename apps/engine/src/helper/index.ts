@@ -6,10 +6,9 @@ export const getUser = (userId:string)=>{
       const User = users.get(userId)
       if(User){
           return User
-      }
-      
-      
+      }      
 }
+
 export const getCurrentPriceOfAsset = (asset: string): { asset: string; price: string ,decimal:number} => {
     console.log("getCurrentPriceOfAsset")
   const trade = trades.find(t => t.asset === asset) as { asset: string; price: string ,decimal:number};
@@ -53,3 +52,45 @@ export const Opentrade =(asset:string,type:"LONG"|"SHORT",margin:number,leverage
     console.log(openTrade,"open trade")
     return Opentrade
 }
+
+export const CloseTrade = (orderId: string) => {
+    console.log("closeing the trade")
+    const open = openTrade.get(orderId) as OpenTrade;
+    if (!open) return null;
+    const user = users.get(open.userId) as User;
+
+    const currentDetailsOfAsset = getCurrentPriceOfAsset(open.asset);
+    const currentPriceOfAsset = Number(currentDetailsOfAsset.price);
+    let pnl = 0;
+    if (open.type === "LONG") {
+        pnl = open.exposure * (currentPriceOfAsset - open.entryPrice) / open.entryPrice;
+        console.log("this is the pnl",pnl)
+    } else if (open.type === "SHORT") {
+        pnl = open.exposure * (open.entryPrice - currentPriceOfAsset) / open.entryPrice;
+        console.log("this is the pnl",pnl)
+    }
+    const qntUserBet = open.quantity;
+    const oldQnt = user.balance.get(open.asset)?.quantity ?? 0;
+    const remQnt = oldQnt - qntUserBet;
+    if (remQnt <= 0) {
+        user.balance.delete(open.asset);
+    } else {
+        user.balance.set(open.asset, { asset: open.asset, quantity: remQnt });
+    }
+
+    user.balance.get("USDT")!.quantity += open.margin + pnl;
+    console.log("user balance",user.balance)
+
+    const closedTrade: OpenTrade = {
+        ...open,
+        status: "CLOSED",
+        pnl,
+        currentPrice: currentPriceOfAsset,
+        closedAt: new Date()
+    };
+    console.log("closed trade",closedTrade)
+    openTrade.set(orderId, closedTrade);
+    console.log("open trade",openTrade)
+    return closedTrade;
+};
+

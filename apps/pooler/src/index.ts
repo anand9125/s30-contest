@@ -5,7 +5,7 @@ const ws=new W3CWebsocket('wss://ws.backpack.exchange/');
 const publisher=createClient({url:"redis://localhost:6379"})
 
 const liveData:{asset:string; price:number,decimal:number}[]=[];
-
+const bidAskData:{asset:string; bid:number,ask:number}[]=[];
 async function connect(){
     try{
         await publisher.connect();
@@ -28,6 +28,7 @@ async function connect(){
 
     ws.onmessage=(event)=>{
         const msg=JSON.parse(event.data.toString());
+        console.log(msg);
         let price = msg.data.a;
         let decimal:number;
         price = price.replace('.', '');
@@ -38,6 +39,19 @@ async function connect(){
             price:price,
             decimal
         }
+        const BidAskdata = {
+            asset:msg.data.s,
+            bid:msg.data.b,
+            ask:msg.data.a
+        }
+        const existingBidAskEntry=bidAskData.find(d=>d.asset===trade.asset);
+
+        if(existingBidAskEntry){
+               existingBidAskEntry.bid=BidAskdata.bid;
+               existingBidAskEntry.ask=BidAskdata.ask;
+        } 
+        else bidAskData.push(BidAskdata)
+
         const existingEntry=liveData.find(d=>d.asset===trade.asset);
 
         if(existingEntry){
@@ -57,12 +71,18 @@ function runTrades(){
 }
 
 async function sendTrades() {
-  const id = await publisher.xAdd(
-    "tradesFromPooler", 
+//   const id = await publisher.xAdd(
+//     "tradesFromPooler", 
+//     "*",                
+//     { priceOfTrade: JSON.stringify(liveData) } 
+//   );
+//   console.log("Produced:", id, liveData);
+  const id2 = await publisher.xAdd(
+    "bidaskFromPooler", 
     "*",                
-    { priceOfTrade: JSON.stringify(liveData) } 
+    { bidask: JSON.stringify(bidAskData) } 
   );
-  console.log("Produced:", id, liveData);
+  console.log("Produced:", id2, bidAskData);
 }
 
 connect();

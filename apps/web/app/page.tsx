@@ -1,10 +1,10 @@
-
-import { Button } from "@repo/ui/button";
-import{Admin} from "@repo/ui/Admin"
+import Link from 'next/link';
+import { TrendingUp, BarChart3, Shield, Zap } from 'lucide-react';
 
 export default function Home() {
   return (
-    <div><Button appName="Web app">Hii there</Button>
-    <Admin></Admin></div>
-  )
+    <div className="min-h-screen bg-[#0a0e13] text-white">
+      hi
+    </div>
+  );
 }

@@ -25,10 +25,14 @@ export type OpenTrade = {
   exposure:number,//derived value from margin and leverage(margin*leverage)amount of money or value that you have at risk in the market
   quantity:number,
   entryPrice:number,
+  currentPrice?:number,
   decimal:number,
+  pnl?:number,
   status:"OPEN"|"CLOSED"|"CANCELLED"
   createdAt:Date,
+  closedAt?:Date
 }
+
 export type User ={
     id:string,
     balance: Map<string,balance>;

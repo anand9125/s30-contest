@@ -61,9 +61,7 @@ export class RedisSubscriber {
   waitForMessage(callbackId: string): Promise<any> {
     return new Promise((resolve,reject) => {
       this.callbacks[callbackId] = resolve;
-      setTimeout(() => {
-          reject()
-      },5000)
+
     });
 
   }
