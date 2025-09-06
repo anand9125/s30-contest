@@ -28,7 +28,7 @@ async function connect(){
 
     ws.onmessage=(event)=>{
         const msg=JSON.parse(event.data.toString());
-        console.log(msg);
+      //  console.log(msg);
         let price = msg.data.a;
         let decimal:number;
         price = price.replace('.', '');
